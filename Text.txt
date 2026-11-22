@@ -1,0 +1,31 @@
+Mon conseil
+Meilleur choix pour coder Claude Opus 5.5 : pour les projets complexes et les bugs difficiles.
+
+Claude Sonnet 5.5 : pour coder tous les jours.
+
+Grok 4.7 High Fast : pour aller vite.
+
+Composer 2.5 Fast : pour les modifications rapides dans Cursor.
+
+
+
+
+
+
+🏆 Mon classement
+Modèle
+
+Point fort
+
+Claude Opus 5.5    Raisonnement et programmation complexes
+
+GPT-5.6 Sol       Polyvalence et résolution de problèmes
+
+Claude Sonnet 5.5      Excellent équilibre vitesse/qualité
+
+Grok 4.7 High Fast    Rapidité et développement quotidien
+
+Composer 2.5 Fast   Travail directement dans Cursor
+
+Gemini 4 Argon    Analyse et compréhension de code
+

@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>SwiftRide Bordeaux</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"/>
+<style>
+:root{--bg:#07070e;--fg:#ecedf6;--card:#0f0f1c;--card2:#171726;--secondary:#181828;--muted:#7878a0;--border:rgba(255,255,255,0.07);--primary:#00c4ff;--pfg:#020610;--accent:#f5e642;--green:#34d399;--purple:#a78bfa;--red:#f04060;--r:14px;--rs:10px;--font:'Outfit',sans-serif;--mono:'JetBrains Mono',monospace}
+[data-theme="light"]{--bg:#f2f2fa;--fg:#0a0a18;--card:#fff;--card2:#f8f8ff;--secondary:#eaeaf4;--muted:#6060a0;--border:rgba(0,0,0,.08)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{font-family:var(--font);background:var(--bg);color:var(--fg);min-height:100vh;transition:background .3s,color .3s;overflow-x:hidden}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input{font-family:inherit;color:inherit}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes ping{0%{transform:scale(1);opacity:.4}100%{transform:scale(2.6);opacity:0}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.hidden{display:none!important}
+.fade{animation:fadeIn .25s ease}
+/* Layout */
+#app-shell{display:grid;grid-template-columns:420px 1fr;gap:20px;max-width:1400px;margin:0 auto;padding:20px 24px 100px}
+@media(max-width:1024px){#app-shell{grid-template-columns:1fr}#map-panel{display:none}}
+/* Navbar */
+#navbar{position:sticky;top:0;z-index:200;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;padding:0 24px;gap:10px}
+.nav-logo{display:flex;align-items:center;gap:8px;margin-right:8px}
+.nav-logo-icon{width:32px;height:32px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 18px rgba(0,196,255,.35);font-size:15px;flex-shrink:0}
+.nav-logo-text{font-size:18px;font-weight:800;letter-spacing:-.5px}
+.nav-flag{font-size:11px;color:var(--muted)}
+.nav-tabs{display:flex;gap:4px}
+.nav-tab{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--rs);font-size:13px;font-weight:600;color:var(--muted);transition:all .2s}
+.nav-tab:hover{color:var(--fg);background:var(--secondary)}
+.nav-tab.active{color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,transparent)}
+.nav-search{flex:1;max-width:280px;margin-left:8px;display:flex;align-items:center;gap:8px;background:var(--secondary);border:1px solid var(--border);border-radius:var(--rs);padding:0 14px;height:36px}
+.nav-search input{flex:1;background:none;border:none;outline:none;font-size:13px}
+.nav-search input::placeholder{color:var(--muted)}
+.nav-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+.icon-btn{width:36px;height:36px;border-radius:var(--rs);background:var(--secondary);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;transition:border-color .2s;position:relative;color:var(--muted)}
+.icon-btn:hover{border-color:color-mix(in srgb,var(--primary) 40%,transparent)}
+.badge-count{position:absolute;top:4px;right:4px;width:16px;height:16px;border-radius:50%;font-size:9px;background:var(--primary);color:var(--pfg);font-weight:700;display:flex;align-items:center;justify-content:center}
+.avatar-btn{width:36px;height:36px;border-radius:10px;overflow:hidden;border:2px solid color-mix(in srgb,var(--primary) 30%,transparent);cursor:pointer}
+.avatar-btn img{width:100%;height:100%;object-fit:cover}
+/* Dropdowns */
+.dropdown-wrap{position:relative}
+.locale-btn{display:flex;align-items:center;gap:5px;padding:6px 10px;background:var(--secondary);border:1px solid var(--border);border-radius:var(--rs);font-size:11px;font-weight:700;text-transform:uppercase;transition:border-color .2s}
+.locale-btn:hover{border-color:color-mix(in srgb,var(--primary) 40%,transparent)}
+.dropdown{position:absolute;right:0;top:calc(100% + 8px);background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden;width:140px;z-index:300;animation:fadeIn .15s ease}
+.dropdown-item{display:flex;align-items:center;gap:8px;padding:10px 16px;font-size:12px;font-weight:700;text-transform:uppercase;width:100%;transition:background .15s;text-align:left}
+.dropdown-item:hover{background:var(--secondary)}
+.dropdown-item.active{color:var(--primary)}
+.notif-dropdown{position:absolute;right:0;top:calc(100% + 8px);background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.5);width:288px;z-index:300;overflow:hidden;animation:fadeIn .15s ease}
+.notif-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700}
+.notif-read-all{color:var(--primary);font-weight:600;font-size:11px;cursor:pointer}
+.notif-item{display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.notif-item:last-child{border-bottom:none}
+.notif-item:hover{background:var(--secondary)}
+.notif-item.unread{background:color-mix(in srgb,var(--primary) 4%,transparent)}
+.notif-icon{font-size:18px;flex-shrink:0;margin-top:2px}
+.notif-text{font-size:11px;line-height:1.5;flex:1}
+.notif-time{font-size:10px;color:var(--muted);margin-top:3px}
+.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0;margin-top:4px}
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.card-sm{padding:12px}
+/* Left panel */
+#left-panel{display:flex;flex-direction:column;gap:16px;min-width:0}
+.view-section{display:flex;flex-direction:column;gap:14px;animation:fadeIn .25s ease}
+.step-section{display:flex;flex-direction:column;gap:14px;animation:fadeIn .2s ease}
+.section-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:0 4px}
+/* Route inputs */
+.route-inputs-card{display:flex;flex-direction:column;gap:12px}
+.route-dots{display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:10px}
+.dot-origin{width:12px;height:12px;border-radius:50%;border:2px solid var(--primary)}
+.dot-line{width:1px;height:32px;background:var(--border)}
+.dot-dest{width:12px;height:12px;border-radius:50%;border:2px solid var(--accent)}
+.inputs-col{flex:1;display:flex;flex-direction:column;gap:8px}
+.address-wrap{position:relative}
+.address-input{width:100%;background:var(--secondary);border:1px solid var(--border);border-radius:var(--rs);padding:10px 34px;font-size:13px;outline:none;transition:border-color .2s}
+.address-input:focus{border-color:color-mix(in srgb,var(--primary) 60%,transparent)}
+.address-input::placeholder{color:var(--muted)}
+.address-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none}
+.address-spinner{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;border:2px solid color-mix(in srgb,var(--primary) 25%,transparent);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite}
+.autocomplete-dropdown{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 16px 50px rgba(0,0,0,.5);z-index:150;overflow:hidden;max-height:200px;overflow-y:auto;animation:fadeIn .15s ease}
+.autocomplete-item{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;text-align:left;width:100%}
+.autocomplete-item:last-child{border-bottom:none}
+.autocomplete-item:hover{background:var(--secondary)}
+.ac-pin{color:var(--muted);font-size:12px;flex-shrink:0;margin-top:2px}
+.ac-main{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.ac-sub{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.route-meta{display:flex;gap:12px;padding-top:8px;border-top:1px solid var(--border)}
+.route-meta-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+.route-meta-item span{color:var(--fg);font-weight:600}
+/* Quick places */
+.quick-places{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.quick-place{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:72px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:border-color .2s;text-align:center}
+.quick-place:hover{border-color:color-mix(in srgb,var(--primary) 35%,transparent)}
+.quick-place .emoji{font-size:22px}
+.quick-place .name{font-size:10px;font-weight:700;line-height:1.3}
+.saved-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.saved-place{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:border-color .2s;text-align:center}
+.saved-place:hover{border-color:color-mix(in srgb,var(--primary) 35%,transparent)}
+.saved-place .emoji{font-size:20px}
+.saved-place .label{font-size:11px;font-weight:700}
+.recent-list{display:flex;flex-direction:column;gap:2px}
+.recent-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;cursor:pointer;transition:background .15s}
+.recent-item:hover{background:var(--secondary)}
+.recent-icon{width:30px;height:30px;border-radius:var(--rs);background:var(--secondary);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);flex-shrink:0}
+.recent-info{flex:1;min-width:0}
+.recent-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recent-date{font-size:10px;color:var(--muted)}
+/* Buttons */
+.btn-primary{width:100%;padding:15px;border-radius:var(--r);background:var(--primary);color:var(--pfg);font-size:15px;font-weight:800;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .2s,transform .1s;box-shadow:0 8px 28px rgba(0,196,255,.22)}
+.btn-primary:hover{opacity:.92}
+.btn-primary:active{transform:scale(.985)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+/* Vehicle step */
+.step-header{display:flex;align-items:center;justify-content:space-between}
+.step-back{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--muted);transition:color .2s}
+.step-back:hover{color:var(--fg)}
+.cat-filters{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.cat-btn{flex-shrink:0;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid var(--border);background:var(--secondary);color:var(--muted);transition:all .2s;cursor:pointer}
+.cat-btn.active{background:color-mix(in srgb,var(--primary) 10%,transparent);border-color:color-mix(in srgb,var(--primary) 40%,transparent);color:var(--primary)}
+.vehicle-list{display:flex;flex-direction:column;gap:8px;max-height:440px;overflow-y:auto;scrollbar-width:none}
+.vehicle-card{display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:all .2s;text-align:left;width:100%}
+.vehicle-card:hover{background:color-mix(in srgb,var(--secondary) 80%,transparent)}
+.vehicle-card.selected{border-color:color-mix(in srgb,var(--primary) 50%,transparent);background:color-mix(in srgb,var(--primary) 5%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--primary) 20%,transparent)}
+.vehicle-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:16px;background:var(--secondary);border:1px solid var(--border);flex-shrink:0;transition:all .2s}
+.vehicle-card.selected .vehicle-icon{background:color-mix(in srgb,var(--primary) 15%,transparent);border-color:color-mix(in srgb,var(--primary) 30%,transparent)}
+.vehicle-info{flex:1;min-width:0}
+.vehicle-name-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.vehicle-name{font-size:13px;font-weight:700}
+.v-tag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:999px;border:1px solid}
+.v-tag.popular{background:color-mix(in srgb,var(--primary) 10%,transparent);border-color:color-mix(in srgb,var(--primary) 20%,transparent);color:var(--primary)}
+.v-tag.cheapest{background:color-mix(in srgb,var(--accent) 15%,transparent);border-color:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accent)}
+.v-tag.fastest{background:color-mix(in srgb,var(--red) 10%,transparent);border-color:color-mix(in srgb,var(--red) 20%,transparent);color:var(--red)}
+.v-tag.zeroCo2{background:color-mix(in srgb,var(--green) 10%,transparent);border-color:color-mix(in srgb,var(--green) 20%,transparent);color:var(--green)}
+.v-tag.business{background:var(--secondary);border-color:var(--border);color:var(--muted)}
+.vehicle-meta{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);margin-top:3px}
+.vehicle-price-col{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.vehicle-price{font-size:15px;font-weight:700;font-family:var(--mono)}
+.check-circle{width:16px;height:16px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--pfg)}
+.vehicle-summary{display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+.vehicle-summary strong{font-family:var(--mono);color:var(--fg);font-size:14px}
+/* Finding driver */
+.finding-card{text-align:center;padding:40px 20px}
+.spinner{width:52px;height:52px;border:4px solid color-mix(in srgb,var(--primary) 20%,transparent);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 20px}
+.finding-title{font-size:16px;font-weight:700;margin-bottom:6px}
+.finding-sub{font-size:13px;color:var(--muted)}
+.skeleton{background:linear-gradient(90deg,var(--secondary) 25%,var(--card2) 50%,var(--secondary) 75%);background-size:400px 100%;animation:shimmer 1.4s infinite;border-radius:var(--rs)}
+/* Status chip */
+.status-chip{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:999px;border:1px solid}
+.status-chip.primary{background:color-mix(in srgb,var(--primary) 10%,transparent);border-color:color-mix(in srgb,var(--primary) 25%,transparent)}
+.chip-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:pulse 2s infinite}
+.chip-text{font-size:13px;font-weight:700;color:var(--primary)}
+/* Driver card */
+.driver-card{display:flex;flex-direction:column;gap:14px}
+.driver-header{display:flex;align-items:center;gap:14px}
+.driver-avatar{width:64px;height:64px;border-radius:16px;object-fit:cover;border:2px solid color-mix(in srgb,var(--primary) 30%,transparent)}
+.driver-name-row{display:flex;align-items:center;gap:6px}
+.driver-name{font-size:18px;font-weight:800}
+.driver-check{color:var(--primary);font-size:14px}
+.driver-car{font-size:13px;color:var(--muted);margin-top:2px}
+.driver-meta{display:flex;align-items:center;gap:10px;margin-top:5px}
+.stars{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:700}
+.star-icon{color:var(--accent);font-size:13px}
+.driver-trips{font-size:11px;color:var(--muted)}
+.level-badge{padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:color-mix(in srgb,var(--primary) 10%,transparent);border:1px solid color-mix(in srgb,var(--primary) 20%,transparent);color:var(--primary)}
+.driver-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.info-tile{background:var(--secondary);border:1px solid var(--border);border-radius:var(--rs);padding:10px;text-align:center}
+.info-tile .label{font-size:9px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;letter-spacing:.05em}
+.info-tile .value{font-size:13px;font-weight:700;font-family:var(--mono)}
+.info-tile .value.primary{color:var(--primary)}
+.driver-langs{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.pin-tile{background:var(--secondary);border:1px solid var(--border);border-radius:var(--rs);padding:12px}
+.pin-label{font-size:9px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;letter-spacing:.05em}
+.pin-value{font-size:24px;font-weight:800;font-family:var(--mono);letter-spacing:.4em}
+.driver-actions{display:flex;gap:8px}
+.btn-action{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;background:var(--secondary);border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-weight:600;transition:border-color .2s}
+.btn-action:hover{border-color:color-mix(in srgb,var(--primary) 35%,transparent)}
+/* Riding */
+.riding-header{display:flex;align-items:center;gap:10px}
+.riding-avatar{width:46px;height:46px;border-radius:50%;object-fit:cover;border:2px solid color-mix(in srgb,var(--primary) 30%,transparent)}
+.riding-name{font-size:14px;font-weight:700}
+.riding-car{font-size:11px;color:var(--muted);margin-top:1px}
+.ride-timer{font-size:24px;font-weight:800;font-family:var(--mono);text-align:right}
+.ride-timer-label{font-size:10px;color:var(--muted);text-align:right}
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.metric-tile{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;background:var(--secondary);border:1px solid var(--border);border-radius:var(--rs);text-align:center}
+.metric-icon{font-size:14px}
+.metric-value{font-size:13px;font-weight:700;font-family:var(--mono)}
+.metric-label{font-size:9px;color:var(--muted)}
+.btn-danger{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border-radius:var(--r);font-size:13px;font-weight:600;background:color-mix(in srgb,var(--red) 10%,transparent);border:1px solid color-mix(in srgb,var(--red) 30%,transparent);color:var(--red);transition:background .2s}
+.btn-danger:hover{background:color-mix(in srgb,var(--red) 15%,transparent)}
+/* Completed */
+.completed-card{text-align:center;padding:32px 20px}
+.check-ring{width:80px;height:80px;border-radius:50%;margin:0 auto 16px;background:color-mix(in srgb,var(--primary) 15%,transparent);border:2px solid var(--primary);display:flex;align-items:center;justify-content:center;font-size:36px;color:var(--primary)}
+.completed-title{font-size:24px;font-weight:800;margin-bottom:6px}
+.completed-fare{font-size:32px;font-weight:800;font-family:var(--mono);margin:16px 0}
+.completed-actions{display:flex;gap:10px}
+.btn-secondary{flex:1;padding:12px;border-radius:var(--r);font-size:13px;font-weight:700;background:var(--secondary);border:1px solid var(--border);transition:border-color .2s}
+.btn-secondary:hover{border-color:color-mix(in srgb,var(--primary) 35%,transparent)}
+/* History */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.stat-tile{padding:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--r)}
+.stat-icon{font-size:14px;margin-bottom:6px}
+.stat-value{font-size:13px;font-weight:700;font-family:var(--mono)}
+.stat-label{font-size:10px;color:var(--muted);margin-top:2px}
+.history-list{display:flex;flex-direction:column;gap:8px}
+.history-item{display:flex;align-items:flex-start;gap:10px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);transition:border-color .2s;position:relative}
+.history-item:hover{border-color:color-mix(in srgb,var(--primary) 25%,transparent)}
+.history-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;border:1px solid var(--border);flex-shrink:0}
+.history-info{flex:1;min-width:0}
+.history-top{display:flex;align-items:center;justify-content:space-between}
+.history-dest{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
+.history-fare{font-size:13px;font-weight:700;font-family:var(--mono);flex-shrink:0;margin-left:8px}
+.history-route{font-size:10px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.history-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.history-date{font-size:10px;color:var(--muted)}
+.history-badge{padding:2px 7px;border-radius:999px;background:var(--secondary);border:1px solid var(--border);font-size:10px;color:var(--muted);margin-left:6px}
+.star-rating{display:flex;gap:2px}
+.star-rating .s{font-size:10px}
+.star-rating .s.filled{color:var(--accent)}
+.star-rating .s.empty{color:var(--border)}
+.repeat-btn{position:absolute;right:12px;top:12px;width:30px;height:30px;border-radius:10px;opacity:0;background:color-mix(in srgb,var(--primary) 10%,transparent);border:1px solid color-mix(in srgb,var(--primary) 20%,transparent);color:var(--primary);font-size:12px;display:flex;align-items:center;justify-content:center;transition:opacity .15s}
+.history-item:hover .repeat-btn{opacity:1}
+/* Profile */
+.profile-header{display:flex;align-items:center;gap:14px}
+.profile-avatar-wrap{position:relative}
+.profile-avatar{width:64px;height:64px;border-radius:16px;object-fit:cover;border:2px solid color-mix(in srgb,var(--primary) 30%,transparent)}
+.profile-verified{position:absolute;bottom:-4px;right:-4px;width:20px;height:20px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--pfg);border:2px solid var(--card)}
+.profile-name{font-size:16px;font-weight:800}
+.profile-contact{font-size:11px;color:var(--muted);margin-top:2px}
+.profile-badges{display:flex;align-items:center;gap:10px;margin-top:8px}
+.profile-rating{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:700}
+.profile-rides{font-size:11px;color:var(--muted)}
+.gold-badge{padding:3px 9px;border-radius:999px;font-size:10px;font-weight:700;background:color-mix(in srgb,var(--primary) 10%,transparent);border:1px solid color-mix(in srgb,var(--primary) 20%,transparent);color:var(--primary)}
+.loyalty-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.loyalty-title{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700}
+.loyalty-reset{font-size:10px;color:var(--muted)}
+.loyalty-pts{font-size:30px;font-weight:800;font-family:var(--mono)}
+.loyalty-goal{font-size:11px;color:var(--muted);float:right}
+.progress-bar{width:100%;height:8px;background:var(--secondary);border-radius:4px;overflow:hidden;margin:8px 0 10px}
+.progress-fill{height:100%;background:var(--primary);border-radius:4px}
+.reward-btns{display:flex;gap:6px;flex-wrap:wrap}
+.reward-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--secondary);border:1px solid var(--border);border-radius:var(--rs);font-size:11px;font-weight:600;transition:border-color .2s}
+.reward-btn:hover{border-color:color-mix(in srgb,var(--primary) 35%,transparent)}
+.saved-list{display:flex;flex-direction:column;gap:6px}
+.saved-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:border-color .2s}
+.saved-row:hover{border-color:color-mix(in srgb,var(--primary) 25%,transparent)}
+.saved-emoji-box{width:36px;height:36px;border-radius:var(--rs);background:var(--secondary);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px}
+.saved-row-info{flex:1;min-width:0}
+.saved-row-name{font-size:13px;font-weight:700}
+.saved-row-addr{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.payment-list{display:flex;flex-direction:column;gap:6px}
+.payment-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:all .2s;width:100%;text-align:left}
+.payment-item.active{border-color:color-mix(in srgb,var(--primary) 40%,transparent);background:color-mix(in srgb,var(--primary) 5%,transparent)}
+.payment-emoji{width:36px;height:36px;border-radius:var(--rs);background:var(--secondary);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px}
+.payment-label{flex:1;font-size:13px;font-weight:600}
+.default-badge{padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700;background:color-mix(in srgb,var(--primary) 10%,transparent);border:1px solid color-mix(in srgb,var(--primary) 20%,transparent);color:var(--primary)}
+.add-btn-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px dashed var(--border);border-radius:var(--r);cursor:pointer;transition:border-color .2s}
+.add-btn-row:hover{border-color:color-mix(in srgb,var(--primary) 35%,transparent)}
+.add-box{width:36px;height:36px;border-radius:var(--rs);background:var(--secondary);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--muted)}
+.add-label{font-size:13px;color:var(--muted)}
+.menu-list{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.menu-item{display:flex;align-items:center;padding:12px 16px;font-size:13px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;gap:8px}
+.menu-item:last-child{border-bottom:none}
+.menu-item:hover{background:var(--secondary)}
+.menu-label{flex:1}
+.menu-badge{padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700;background:color-mix(in srgb,var(--primary) 10%,transparent);border:1px solid color-mix(in srgb,var(--primary) 20%,transparent);color:var(--primary)}
+.menu-arrow{color:var(--muted);font-size:12px}
+/* Map panel */
+#map-panel{display:flex;flex-direction:column;gap:14px}
+#map-container{flex:1;min-height:520px;border-radius:24px;overflow:hidden;position:relative}
+#leaflet-map{width:100%;height:100%;min-height:520px;border-radius:24px}
+.map-live-badge{position:absolute;top:14px;left:14px;z-index:500;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(12px);border:1px solid var(--border);font-size:11px;font-weight:700}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--primary);animation:pulse 2s infinite}
+.map-controls{position:absolute;bottom:20px;right:14px;z-index:500;display:flex;flex-direction:column;gap:6px}
+.map-ctrl-btn{width:34px;height:34px;border-radius:10px;background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(12px);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--fg);cursor:pointer;transition:color .2s}
+.map-ctrl-btn:hover{color:var(--primary)}
+.stats-strip{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+.stat-card{padding:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r)}
+.stat-card .icon{font-size:14px;margin-bottom:6px}
+.stat-card .val{font-size:14px;font-weight:700;font-family:var(--mono)}
+.stat-card .lbl{font-size:10px;color:var(--muted);margin-top:2px}
+/* Safety footer */
+.safety-footer{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);padding:0 4px}
+.safety-footer .shield{color:var(--primary);font-size:11px}
+/* Mobile nav */
+#mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:color-mix(in srgb,var(--card) 90%,transparent);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:10px 0 14px}
+@media(max-width:1024px){#mobile-nav{display:block}}
+.mobile-nav-inner{display:flex;align-items:center;justify-content:space-around}
+.mobile-nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 20px;border-radius:12px;font-size:10px;font-weight:700;color:var(--muted);transition:color .2s;cursor:pointer}
+.mobile-nav-item.active{color:var(--primary)}
+.mobile-nav-icon{font-size:18px}
+/* Dialogs */
+dialog{background:none;border:none;padding:0;max-width:100vw;max-height:100vh;width:100%;height:100%}
+dialog::backdrop{background:rgba(0,0,0,.72);backdrop-filter:blur(6px)}
+.modal-wrap{display:flex;align-items:flex-end;justify-content:center;min-height:100vh;padding:20px}
+@media(min-width:640px){.modal-wrap{align-items:center}}
+.modal-box{background:var(--card);border:1px solid var(--border);border-radius:24px 24px 0 0;max-width:460px;width:100%;max-height:94vh;overflow-y:auto;scrollbar-width:none;animation:slideUp .28s cubic-bezier(.22,1,.36,1)}
+@media(min-width:640px){.modal-box{border-radius:24px}}
+.drag-handle{display:flex;justify-content:center;padding:10px 0 4px}
+.drag-handle-bar{width:36px;height:4px;border-radius:2px;background:var(--border)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px 8px}
+.modal-title{font-size:17px;font-weight:700}
+.modal-close{width:32px;height:32px;border-radius:50%;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted);transition:color .2s}
+.modal-close:hover{color:var(--fg)}
+.modal-body{padding:0 24px 24px;display:flex;flex-direction:column;gap:12px}
+.route-preview{display:flex;align-items:center;gap:10px;padding:14px;background:var(--secondary);border:1px solid var(--border);border-radius:var(--r)}
+.route-preview-stops{display:flex;flex-direction:column;align-items:center;gap:3px}
+.route-stop-dot{width:10px;height:10px;border-radius:50%;border:2px solid}
+.route-stop-dot.origin{border-color:var(--primary)}
+.route-stop-dot.dest{border-color:var(--accent)}
+.route-stop-line{width:1px;height:26px;background:var(--border)}
+.route-stops-info{flex:1;display:flex;flex-direction:column;gap:8px}
+.rl{font-size:9px;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;font-weight:700}
+.rv{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px}
+.route-dist{text-align:right;flex-shrink:0;font-size:10px;color:var(--muted);line-height:1.8}
+.confirm-vehicle,.confirm-driver{display:flex;align-items:center;gap:10px;padding:14px;background:var(--secondary);border:1px solid var(--border);border-radius:var(--r)}
+.confirm-driver-avatar{width:46px;height:46px;border-radius:50%;object-fit:cover;border:2px solid color-mix(in srgb,var(--primary) 30%,transparent)}
+.selector-label{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.06em;font-weight:700;margin-bottom:6px}
+.tip-btns,.payment-btns{display:flex;gap:6px}
+.tip-btn,.pay-btn{flex:1;padding:8px 4px;border-radius:var(--rs);font-size:11px;font-weight:700;border:1px solid var(--border);background:var(--secondary);transition:all .2s;cursor:pointer}
+.tip-btn.active,.pay-btn.active{border-color:color-mix(in srgb,var(--primary) 40%,transparent);background:color-mix(in srgb,var(--primary) 10%,transparent);color:var(--primary)}
+.payment-btns{flex-wrap:wrap}
+.pay-btn{flex:0 0 auto;padding:7px 12px;display:flex;align-items:center;gap:5px}
+.promo-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;background:none;border:none;transition:color .2s}
+.promo-toggle:hover{color:var(--primary)}
+.promo-row{display:none;gap:6px;margin-top:8px}
+.promo-row.open{display:flex}
+.promo-input{flex:1;background:var(--secondary);border:1px solid var(--border);border-radius:var(--rs);padding:8px 12px;font-size:12px;outline:none;transition:border-color .2s}
+.promo-input:focus{border-color:color-mix(in srgb,var(--primary) 50%,transparent)}
+.promo-apply{padding:8px 14px;background:var(--primary);color:var(--pfg);border-radius:var(--rs);font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:inherit}
+.promo-success{font-size:11px;color:var(--primary);margin-top:5px;display:none}
+.promo-success.show{display:flex;align-items:center;gap:4px}
+.total-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:color-mix(in srgb,var(--muted) 10%,transparent);border-radius:var(--r)}
+.total-label{font-size:13px;font-weight:600;color:var(--muted)}
+.total-value{font-size:20px;font-weight:800;font-family:var(--mono)}
+.sos-btn{width:100%;padding:20px;border-radius:var(--r);font-size:18px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .2s;border:2px solid color-mix(in srgb,var(--red) 50%,transparent);background:color-mix(in srgb,var(--red) 10%,transparent);color:var(--red)}
+.sos-btn.triggered{background:var(--red);color:#fff;animation:pulse 1s infinite}
+.sos-note{font-size:11px;color:var(--muted);text-align:center;margin-top:6px;display:none}
+.sos-note.show{display:block}
+.safety-actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.safety-action{padding:14px;background:var(--secondary);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:all .2s;text-align:left}
+.safety-action:hover{border-color:color-mix(in srgb,var(--primary) 30%,transparent)}
+.sa-icon{font-size:18px;margin-bottom:6px}
+.sa-title{font-size:12px;font-weight:700}
+.sa-sub{font-size:10px;color:var(--muted)}
+.trust-list{display:flex;flex-direction:column;gap:6px}
+.trust-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--secondary);border:1px solid var(--border);border-radius:var(--r)}
+.trust-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;border:1px solid var(--border)}
+.trust-name{font-size:12px;font-weight:700}
+.trust-rel{font-size:10px;color:var(--muted)}
+.trust-notify{margin-left:auto;padding:5px 12px;border-radius:var(--rs);font-size:11px;font-weight:600;background:color-mix(in srgb,var(--primary) 10%,transparent);border:1px solid color-mix(in srgb,var(--primary) 20%,transparent);color:var(--primary);cursor:pointer}
+.vt-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.vt-title{font-size:13px;font-weight:700}
+.vt-active{font-size:11px;font-weight:600;color:var(--primary)}
+.vt-pin{font-size:28px;font-weight:800;font-family:var(--mono);letter-spacing:.3em;margin-top:4px}
+.vt-hint{font-size:10px;color:var(--muted);margin-top:5px}
+.rating-driver-pic{display:block;width:80px;height:80px;border-radius:16px;object-fit:cover;border:2px solid color-mix(in srgb,var(--primary) 30%,transparent);margin:0 auto}
+.star-picker{display:flex;justify-content:center;gap:8px}
+.star-pick{font-size:28px;cursor:pointer;color:var(--border);transition:color .15s,transform .1s;background:none;border:none}
+.star-pick.lit{color:var(--accent)}
+.star-pick:hover{transform:scale(1.2)}
+.tags-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.tag-chip{padding:6px 12px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--secondary);color:var(--muted);cursor:pointer;transition:all .2s}
+.tag-chip.active{border-color:color-mix(in srgb,var(--primary) 40%,transparent);background:color-mix(in srgb,var(--primary) 10%,transparent);color:var(--primary)}
+.success-ring{width:80px;height:80px;border-radius:50%;margin:0 auto;background:color-mix(in srgb,var(--primary) 15%,transparent);border:2px solid var(--primary);display:flex;align-items:center;justify-content:center;font-size:36px;color:var(--primary)}
+.leaflet-container{font-family:var(--font)!important}
+.leaflet-control-attribution,.leaflet-control-zoom{display:none!important}
+</style>
+</head>
+<body>
+
+<header id="navbar" role="banner">
+  <div class="nav-logo">
+    <div class="nav-logo-icon">⚡</div>
+    <span class="nav-logo-text">SwiftRide</span>
+    <span class="nav-flag">🇫🇷 Bordeaux</span>
+  </div>
+  <nav class="nav-tabs" id="nav-tabs">
+    <button class="nav-tab active" data-view="home" onclick="setView('home')">🏠 <span data-i18n="home">Accueil</span></button>
+    <button class="nav-tab" data-view="history" onclick="setView('history')">🕐 <span data-i18n="rides">Trajets</span></button>
+    <button class="nav-tab" data-view="profile" onclick="setView('profile')">👤 <span data-i18n="profile">Profil</span></button>
+  </nav>
+  <div class="nav-search">
+    <span>🔍</span>
+    <input type="search" placeholder="Bordeaux, Mérignac, Pessac…" id="nav-search-input"/>
+  </div>
+  <div class="nav-actions">
+    <div class="dropdown-wrap">
+      <button class="locale-btn" onclick="toggleLocaleMenu(event)">🌐 <span id="locale-label">FR</span></button>
+      <div class="dropdown hidden" id="locale-dropdown">
+        <button class="dropdown-item active" data-locale="fr" onclick="setLocale('fr')">🇫🇷 FR <span class="chk">✓</span></button>
+        <button class="dropdown-item" data-locale="en" onclick="setLocale('en')">🇬🇧 EN</button>
+        <button class="dropdown-item" data-locale="de" onclick="setLocale('de')">🇩🇪 DE</button>
+        <button class="dropdown-item" data-locale="es" onclick="setLocale('es')">🇪🇸 ES</button>
+      </div>
+    </div>
+    <button class="icon-btn" id="theme-btn" onclick="toggleTheme()">☀️</button>
+    <button class="icon-btn" style="color:var(--primary)" onclick="openModal('safety-modal')">🛡️</button>
+    <div class="dropdown-wrap">
+      <button class="icon-btn" onclick="toggleNotifMenu(event)">🔔<span class="badge-count" id="notif-count">2</span></button>
+      <div class="notif-dropdown hidden" id="notif-dropdown">
+        <div class="notif-header"><span>Notifications</span><button class="notif-read-all" onclick="markAllRead()" data-i18n="markAllRead">Tout lire</button></div>
+        <div id="notif-list"></div>
+      </div>
+    </div>
+    <button class="avatar-btn" onclick="setView('profile')">
+      <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=40&h=40&fit=crop&auto=format" alt="Jordan Kim"/>
+    </button>
+  </div>
+</header>
+
+<main id="app-shell">
+  <aside id="left-panel">
+
+    <!-- HOME VIEW -->
+    <section id="view-home" class="view-section">
+
+      <!-- STEP: location -->
+      <div id="step-location" class="step-section">
+        <article class="card route-inputs-card">
+          <p class="section-label" style="margin-bottom:8px">Votre trajet</p>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div class="route-dots">
+              <div class="dot-origin"></div>
+              <div class="dot-line"></div>
+              <div class="dot-dest"></div>
+            </div>
+            <div class="inputs-col">
+              <div class="address-wrap">
+                <span class="address-icon">📍</span>
+                <input class="address-input" id="from-input" type="text" placeholder="Adresse de départ à Bordeaux" autocomplete="off" oninput="onAddressInput('from',this.value)"/>
+                <div class="address-spinner hidden" id="from-spinner"></div>
+                <div class="autocomplete-dropdown hidden" id="from-dropdown"></div>
+              </div>
+              <div class="address-wrap">
+                <span class="address-icon">🎯</span>
+                <input class="address-input" id="to-input" type="text" placeholder="Destination à Bordeaux et environs" autocomplete="off" oninput="onAddressInput('to',this.value)"/>
+                <div class="address-spinner hidden" id="to-spinner"></div>
+                <div class="autocomplete-dropdown hidden" id="to-dropdown"></div>
+              </div>
+            </div>
+          </div>
+          <div class="route-meta hidden" id="route-meta">
+            <div class="route-meta-item">📏 <span id="route-dist">—</span></div>
+            <div class="route-meta-item">⏱ <span id="route-dur">—</span></div>
+          </div>
+        </article>
+        <div>
+          <p class="section-label" style="margin-bottom:8px">Bordeaux</p>
+          <div class="quick-places" id="paris-places"></div>
+        </div>
+        <div>
+          <p class="section-label" data-i18n="savedPlaces" style="margin-bottom:8px">Lieux enregistrés</p>
+          <div class="saved-grid" id="saved-places-grid"></div>
+        </div>
+        <div>
+          <p class="section-label" data-i18n="recent" style="margin-bottom:8px">Récents</p>
+          <div class="recent-list" id="recent-list"></div>
+        </div>
+        <button class="btn-primary" onclick="goToVehicle()">🔍 <span data-i18n="searchRides">Rechercher un trajet</span></button>
+      </div>
+
+      <!-- STEP: vehicle -->
+      <div id="step-vehicle" class="step-section hidden">
+        <div class="step-header">
+          <button class="step-back" onclick="setStep('location')">‹ <span data-i18n="back">Retour</span></button>
+          <p class="section-label" data-i18n="chooseRide">Choisissez votre véhicule</p>
+          <div style="width:60px"></div>
+        </div>
+        <div class="cat-filters" id="cat-filters"></div>
+        <div class="card card-sm" id="route-summary-bar" style="display:none;flex-direction:row;justify-content:space-between;align-items:center;padding:8px 14px">
+          <span id="route-summary-text" style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>
+          <span id="route-summary-meta" style="font-size:11px;font-weight:700;font-family:var(--mono);flex-shrink:0;margin-left:10px"></span>
+        </div>
+        <div class="vehicle-list" id="vehicle-list"></div>
+        <div style="padding-top:10px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px">
+          <div class="vehicle-summary">
+            <span id="vehicle-summary-text"></span>
+            <strong id="vehicle-summary-price"></strong>
+          </div>
+          <button class="btn-primary" onclick="openConfirmModal()">🗺️ <span id="book-btn-label">Réserver</span></button>
+        </div>
+      </div>
+
+      <!-- STEP: finding -->
+      <div id="step-finding" class="step-section hidden">
+        <article class="card finding-card">
+          <div class="spinner"></div>
+          <p class="finding-title" data-i18n="findingDriver">Recherche d'un chauffeur…</p>
+          <p class="finding-sub" data-i18n="matchingBest">Nous cherchons le meilleur chauffeur</p>
+        </article>
+        <div class="skeleton" style="height:56px"></div>
+        <div class="skeleton" style="height:40px;width:75%"></div>
+      </div>
+
+      <!-- STEP: driver-found -->
+      <div id="step-driver-found" class="step-section hidden">
+        <div class="status-chip primary">
+          <span class="chip-dot"></span>
+          <span class="chip-text" data-i18n="driverAssigned">Chauffeur assigné</span>
+        </div>
+        <article class="card driver-card">
+          <div class="driver-header">
+            <img class="driver-avatar" id="drv-avatar" src="" alt=""/>
+            <div>
+              <div class="driver-name-row">
+                <span class="driver-name" id="drv-name"></span>
+                <span class="driver-check">✓</span>
+              </div>
+              <div class="driver-car" id="drv-car"></div>
+              <div class="driver-meta">
+                <div class="stars"><span class="star-icon">★</span><span id="drv-rating"></span></div>
+                <span class="driver-trips" id="drv-trips"></span>
+                <span class="level-badge" id="drv-level"></span>
+              </div>
+            </div>
+          </div>
+          <div class="driver-grid">
+            <div class="info-tile"><div class="label" data-i18n="licPlate">Plaque</div><div class="value" id="drv-plate"></div></div>
+            <div class="info-tile"><div class="label">ETA</div><div class="value primary" id="drv-eta"></div></div>
+          </div>
+          <div class="driver-langs">🗣 <span id="drv-langs"></span></div>
+          <div class="pin-tile">
+            <div class="pin-label" data-i18n="verificationPin">PIN de vérification</div>
+            <div class="pin-value">4 8 2 1</div>
+          </div>
+          <div class="driver-actions">
+            <button class="btn-action">📞 <span data-i18n="callDriver">Appeler</span></button>
+            <button class="btn-action">💬 <span data-i18n="messageDriver">Message</span></button>
+            <button class="btn-action" style="flex:0 0 44px" onclick="openModal('safety-modal')">🛡️</button>
+          </div>
+        </article>
+        <button class="btn-primary" onclick="setStep('riding')">✓ <span data-i18n="driverArrived">Chauffeur arrivé — Démarrer</span></button>
+      </div>
+
+      <!-- STEP: riding -->
+      <div id="step-riding" class="step-section hidden">
+        <div class="status-chip primary">
+          <span class="chip-dot"></span>
+          <span class="chip-text" data-i18n="rideInProgress">Trajet en cours</span>
+        </div>
+        <article class="card" style="display:flex;flex-direction:column;gap:14px">
+          <div class="riding-header">
+            <img class="riding-avatar" id="ride-avatar" src="" alt=""/>
+            <div style="flex:1">
+              <div class="riding-name" id="ride-name"></div>
+              <div class="riding-car" id="ride-car"></div>
+            </div>
+            <div>
+              <div class="ride-timer" id="ride-timer">00:00</div>
+              <div class="ride-timer-label" data-i18n="elapsed">écoulé</div>
+            </div>
+          </div>
+          <div class="metrics-grid">
+            <div class="metric-tile"><div class="metric-icon" style="color:var(--primary)">⏱</div><div class="metric-value" id="ride-eta">—</div><div class="metric-label">ETA</div></div>
+            <div class="metric-tile"><div class="metric-icon" style="color:var(--purple)">📏</div><div class="metric-value" id="ride-dist">—</div><div class="metric-label" data-i18n="distance">Distance</div></div>
+            <div class="metric-tile"><div class="metric-icon" style="color:var(--accent)">💶</div><div class="metric-value" id="ride-fare">—</div><div class="metric-label" data-i18n="fare">Tarif</div></div>
+          </div>
+          <div class="driver-actions">
+            <button class="btn-action">📞 <span data-i18n="callDriver">Appeler</span></button>
+            <button class="btn-action" style="flex:0 0 44px" onclick="openModal('safety-modal')">🛡️</button>
+            <button class="btn-danger" onclick="endRide()">✕ <span data-i18n="endRide">Terminer</span></button>
+          </div>
+        </article>
+      </div>
+
+      <!-- STEP: completed -->
+      <div id="step-completed" class="step-section hidden">
+        <article class="card completed-card">
+          <div class="check-ring">✓</div>
+          <h2 class="completed-title" data-i18n="youArrived">Vous êtes arrivé !</h2>
+          <div class="completed-fare" id="completed-fare"></div>
+          <div class="completed-actions">
+            <button class="btn-primary" style="flex:1" onclick="openModal('rating-modal')">⭐ <span data-i18n="rateRide">Évaluer</span></button>
+            <button class="btn-secondary" onclick="setStep('location')"><span data-i18n="bookAgain">Réserver à nouveau</span></button>
+          </div>
+        </article>
+      </div>
+
+    </section>
+
+    <!-- HISTORY VIEW -->
+    <section id="view-history" class="view-section hidden">
+      <div class="stats-grid" id="history-stats"></div>
+      <p class="section-label" data-i18n="rideHistory" style="margin-bottom:8px">Historique</p>
+      <div class="history-list" id="history-list"></div>
+    </section>
+
+    <!-- PROFILE VIEW -->
+    <section id="view-profile" class="view-section hidden">
+      <article class="card">
+        <div class="profile-header">
+          <div class="profile-avatar-wrap">
+            <img class="profile-avatar" src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=80&h=80&fit=crop&auto=format" alt="Jordan Kim"/>
+            <div class="profile-verified">✓</div>
+          </div>
+          <div>
+            <div class="profile-name">Jordan Kim</div>
+            <div class="profile-contact">jordan@email.com · +33 5 56 12 34 78</div>
+            <div class="profile-badges">
+              <div class="profile-rating"><span style="color:var(--accent)">★</span> 4.92</div>
+              <span class="profile-rides">48 trajets</span>
+              <span class="gold-badge" data-i18n="goldMember">Membre Or</span>
+            </div>
+          </div>
+        </div>
+      </article>
+      <article class="card">
+        <div class="loyalty-header">
+          <div class="loyalty-title">🏅 <span data-i18n="loyaltyPoints">Points fidélité</span></div>
+          <span class="loyalty-reset" data-i18n="pointsReset">Réinit. le 1er Juil.</span>
+        </div>
+        <span class="loyalty-pts">2 840</span>
+        <span class="loyalty-goal">/ 3 000 Platine</span>
+        <div class="progress-bar"><div class="progress-fill" style="width:94.7%"></div></div>
+        <div class="reward-btns" id="reward-btns"></div>
+      </article>
+      <div>
+        <p class="section-label" data-i18n="savedPlaces" style="margin-bottom:8px">Lieux enregistrés</p>
+        <div class="saved-list" id="profile-saved-places"></div>
+      </div>
+      <div>
+        <p class="section-label" data-i18n="paymentMethods" style="margin-bottom:8px">Paiement</p>
+        <div class="payment-list" id="payment-list"></div>
+        <div class="add-btn-row" style="margin-top:6px">
+          <div class="add-box">+</div>
+          <span class="add-label" data-i18n="addCard">Ajouter un moyen de paiement</span>
+        </div>
+      </div>
+      <nav class="menu-list" id="profile-menu"></nav>
+    </section>
+
+    <footer class="safety-footer">
+      <span class="shield">🛡️</span>
+      <span data-i18n="insured">Trajets assurés · Localisation en direct · Support 24h/24</span>
+    </footer>
+  </aside>
+
+  <section id="map-panel">
+    <div id="map-container">
+      <div id="leaflet-map"></div>
+      <div class="map-live-badge"><div class="live-dot"></div> Live</div>
+      <div class="map-controls">
+        <button class="map-ctrl-btn" onclick="mapZoom(1)">＋</button>
+        <button class="map-ctrl-btn" onclick="mapZoom(-1)">－</button>
+        <button class="map-ctrl-btn" onclick="mapReset()">⊙</button>
+      </div>
+    </div>
+    <div class="stats-strip" id="stats-strip"></div>
+  </section>
+</main>
+
+<nav id="mobile-nav">
+  <div class="mobile-nav-inner">
+    <button class="mobile-nav-item active" data-view="home" onclick="setView('home')"><span class="mobile-nav-icon">🏠</span><span data-i18n="home">Accueil</span></button>
+    <button class="mobile-nav-item" data-view="history" onclick="setView('history')"><span class="mobile-nav-icon">🕐</span><span data-i18n="rides">Trajets</span></button>
+    <button class="mobile-nav-item" data-view="profile" onclick="setView('profile')"><span class="mobile-nav-icon">👤</span><span data-i18n="profile">Profil</span></button>
+    <button class="mobile-nav-item" onclick="openModal('safety-modal')"><span class="mobile-nav-icon">🛡️</span><span data-i18n="safety">Sécurité</span></button>
+  </div>
+</nav>
+
+<!-- CONFIRM MODAL -->
+<dialog id="confirm-modal">
+  <div class="modal-wrap">
+    <article class="modal-box">
+      <div class="drag-handle"><div class="drag-handle-bar"></div></div>
+      <div class="modal-header">
+        <h2 class="modal-title" data-i18n="confirmBooking">Confirmer la réservation</h2>
+        <button class="modal-close" onclick="closeModal('confirm-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="route-preview">
+          <div class="route-preview-stops"><div class="route-stop-dot origin"></div><div class="route-stop-line"></div><div class="route-stop-dot dest"></div></div>
+          <div class="route-stops-info">
+            <div><div class="rl" data-i18n="pickupLocation">Départ</div><div class="rv" id="modal-from">—</div></div>
+            <div><div class="rl" data-i18n="dropoffLocation">Arrivée</div><div class="rv" id="modal-to">—</div></div>
+          </div>
+          <div class="route-dist" id="modal-dist"></div>
+        </div>
+        <div class="confirm-vehicle">
+          <div class="vehicle-icon" id="modal-v-icon" style="flex-shrink:0;font-size:20px"></div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:700" id="modal-v-name"></div><div style="font-size:11px;color:var(--muted)" id="modal-v-info"></div></div>
+          <div><div style="font-size:15px;font-weight:700;font-family:var(--mono)" id="modal-v-price"></div><div style="font-size:11px;color:var(--primary);font-weight:600;display:none" id="modal-discount">-2,00 €</div></div>
+        </div>
+        <div class="confirm-driver">
+          <img class="confirm-driver-avatar" id="modal-drv-avatar" src="" alt=""/>
+          <div style="flex:1"><div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:5px"><span id="modal-drv-name"></span><span style="color:var(--primary)">✓</span></div><div style="font-size:11px;color:var(--muted)" id="modal-drv-car"></div></div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:13px;font-weight:700"><span style="color:var(--accent)">★</span><span id="modal-drv-rating"></span></div>
+        </div>
+        <div><div class="selector-label" data-i18n="addTip">Pourboire</div><div class="tip-btns" id="tip-btns"></div></div>
+        <div><div class="selector-label" data-i18n="payment">Paiement</div><div class="payment-btns" id="modal-pay-btns"></div></div>
+        <div>
+          <button class="promo-toggle" onclick="togglePromo()">⚡ <span data-i18n="promoCode">Code promo ?</span> ▾</button>
+          <div class="promo-row" id="promo-row">
+            <input class="promo-input" id="promo-input" type="text" placeholder="RIDE20"/>
+            <button class="promo-apply" onclick="applyPromo()" data-i18n="applyPromo">Appliquer</button>
+          </div>
+          <div class="promo-success" id="promo-success">✓ <span data-i18n="promoApplied">Réduction appliquée !</span></div>
+        </div>
+        <div class="total-row"><span class="total-label" data-i18n="totalFare">Tarif total</span><span class="total-value" id="modal-total"></span></div>
+        <button class="btn-primary" onclick="confirmBooking()">🗺️ <span id="confirm-btn-label">Réserver</span></button>
+      </div>
+    </article>
+  </div>
+</dialog>
+
+<!-- SAFETY MODAL -->
+<dialog id="safety-modal">
+  <div class="modal-wrap">
+    <article class="modal-box">
+      <div class="drag-handle"><div class="drag-handle-bar"></div></div>
+      <div class="modal-header">
+        <h2 class="modal-title">🛡️ <span data-i18n="safetyCenter">Centre de sécurité</span></h2>
+        <button class="modal-close" onclick="closeModal('safety-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div>
+          <button class="sos-btn" id="sos-btn" onclick="triggerSOS()">⚠️ <span id="sos-label" data-i18n="emergencySOS">SOS Urgence</span></button>
+          <p class="sos-note" id="sos-note">15 (SAMU) · 17 (Police) · 18 (Pompiers) · 112 (Europe)</p>
+        </div>
+        <div class="safety-actions-grid">
+          <button class="safety-action" onclick="alert('Lien partagé !')"><div class="sa-icon">🔗</div><div class="sa-title" data-i18n="shareTrip">Partager le trajet</div><div class="sa-sub">Lien en direct</div></button>
+          <button class="safety-action"><div class="sa-icon" style="color:var(--green)">📞</div><div class="sa-title" data-i18n="callDriver">Appeler le chauffeur</div><div class="sa-sub" id="safety-drv-name">Antoine M.</div></button>
+          <button class="safety-action"><div class="sa-icon" style="color:var(--accent)">💬</div><div class="sa-title" data-i18n="messageDriver">Message</div><div class="sa-sub">Chat intégré</div></button>
+          <button class="safety-action"><div class="sa-icon" style="color:var(--purple)">🔐</div><div class="sa-title" data-i18n="verifyPin">Vérifier PIN</div><div class="sa-sub">4821</div></button>
+        </div>
+        <div>
+          <p class="section-label" data-i18n="trustedContacts" style="margin-bottom:8px">Contacts de confiance</p>
+          <div class="trust-list">
+            <div class="trust-item"><img class="trust-avatar" src="https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=40&h=40&fit=crop&auto=format" alt="Marie"/><div><div class="trust-name">Claire Moreau</div><div class="trust-rel">Sœur · Bordeaux</div></div><button class="trust-notify" data-i18n="notify">Notifier</button></div>
+            <div class="trust-item"><img class="trust-avatar" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&auto=format" alt="Luc"/><div><div class="trust-name">Thomas Girard</div><div class="trust-rel">Conjoint(e) · Mériadeck</div></div><button class="trust-notify" data-i18n="notify">Notifier</button></div>
+          </div>
+          <div class="add-btn-row" style="margin-top:6px"><div class="add-box">+</div><span class="add-label" data-i18n="addContact">Ajouter un contact</span></div>
+        </div>
+        <div style="background:var(--secondary);border:1px solid var(--border);border-radius:var(--r);padding:14px">
+          <div class="vt-header"><span class="vt-title" data-i18n="verificationPin">PIN de vérification</span><span class="vt-active">Actif</span></div>
+          <div class="vt-pin">4 8 2 1</div>
+          <div class="vt-hint" data-i18n="showPin">Montrez ce PIN à votre chauffeur avant de monter</div>
+        </div>
+      </div>
+    </article>
+  </div>
+</dialog>
+
+<!-- RATING MODAL -->
+<dialog id="rating-modal">
+  <div class="modal-wrap">
+    <article class="modal-box" id="rating-box">
+      <div class="drag-handle"><div class="drag-handle-bar"></div></div>
+      <div class="modal-body" style="text-align:center;padding-top:20px;gap:14px">
+        <div><h2 style="font-size:20px;font-weight:800" data-i18n="rateYourRide">Évaluez votre trajet</h2><p style="font-size:13px;color:var(--muted);margin-top:4px" id="rating-drv-name"></p></div>
+        <img class="rating-driver-pic" id="rating-drv-avatar" src="" alt=""/>
+        <div class="star-picker" id="star-picker">
+          <button class="star-pick lit" data-n="1" onclick="setRating(1)">★</button>
+          <button class="star-pick lit" data-n="2" onclick="setRating(2)">★</button>
+          <button class="star-pick lit" data-n="3" onclick="setRating(3)">★</button>
+          <button class="star-pick lit" data-n="4" onclick="setRating(4)">★</button>
+          <button class="star-pick lit" data-n="5" onclick="setRating(5)">★</button>
+        </div>
+        <div class="tags-row" id="rating-tags"></div>
+        <div style="text-align:left"><div class="selector-label" data-i18n="addTip">Pourboire</div><div class="tip-btns" id="rating-tip-btns"></div></div>
+        <button class="btn-primary" onclick="submitRating()"><span id="rating-submit-label">Envoyer l'évaluation</span></button>
+      </div>
+    </article>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<script>
+'use strict';
+const I18N={fr:{home:"Accueil",rides:"Trajets",profile:"Profil",safety:"Sécurité",searchRides:"Rechercher un trajet",chooseRide:"Choisissez votre véhicule",bookNow:"Réserver",confirmBooking:"Confirmer la réservation",findingDriver:"Recherche d'un chauffeur…",matchingBest:"Nous cherchons le meilleur chauffeur",driverAssigned:"Chauffeur assigné",rideInProgress:"Trajet en cours",youArrived:"Vous êtes arrivé !",rateYourRide:"Évaluez votre trajet",submitRating:"Envoyer l'évaluation",totalFare:"Tarif total",promoCode:"Code promo ?",applyPromo:"Appliquer",promoApplied:"Réduction appliquée !",addTip:"Pourboire",pickupLocation:"Départ",dropoffLocation:"Arrivée",payment:"Paiement",savedPlaces:"Lieux enregistrés",recent:"Récents",rideHistory:"Historique des trajets",loyaltyPoints:"Points fidélité",paymentMethods:"Moyens de paiement",addCard:"Ajouter un moyen de paiement",safetyCenter:"Centre de sécurité",emergencySOS:"SOS Urgence",sosSent:"SOS ENVOYÉ — Les secours arrivent",shareTrip:"Partager le trajet",callDriver:"Appeler",messageDriver:"Message",verifyPin:"Vérifier PIN",trustedContacts:"Contacts de confiance",verificationPin:"PIN de vérification",showPin:"Montrez ce PIN à votre chauffeur",endRide:"Terminer",bookAgain:"Réserver à nouveau",rateRide:"Évaluer",elapsed:"écoulé",distance:"Distance",fare:"Tarif",noResults:"Aucun résultat",back:"Retour",totalRides:"Trajets totaux",thisMonth:"Ce mois",avgRating:"Note moy.",activeDrivers:"Chauffeurs actifs",avgEta:"ETA moyen",ridesToday:"Trajets aujourd'hui",goldMember:"Membre Or",platinum:"Platine",pointsReset:"Réinit. le 1er Juil.",freeRide:"Trajet gratuit",discount:"Réduction",priority:"Priorité",accountSettings:"Paramètres",subscriptions:"Abonnements",referEarn:"Parrainage",default:"Défaut",notify:"Notifier",addContact:"Ajouter un contact",licPlate:"Plaque",markAllRead:"Tout lire",greatConvo:"Bonne conversation",safeDriver:"Conduite sûre",onTime:"Ponctuel",cleanCar:"Voiture propre",smoothRide:"Trajet agréable",skipTip:"Ignorer",done:"Terminer",thankYou:"Merci !",feedbackHelps:"Vos avis améliorent l'expérience pour tous.",pointsEarned:"+50 points fidélité gagnés 🎉",zeroCo2:"Zéro CO₂",fastest:"Le plus rapide",cheapest:"Le moins cher",popular:"Populaire",business:"Affaires",driverArrived:"Chauffeur arrivé — Démarrer",insured:"Trajets assurés · Localisation en direct · Support 24h/24",newBadge:"Nouveau",carbonOffset:"Bilan carbone"},en:{home:"Home",rides:"Rides",profile:"Profile",safety:"Safety",searchRides:"Search Rides",chooseRide:"Choose your ride",bookNow:"Book",confirmBooking:"Confirm Booking",findingDriver:"Finding your driver…",matchingBest:"Matching you with the best nearby driver",driverAssigned:"Driver assigned",rideInProgress:"Ride in progress",youArrived:"You arrived!",rateYourRide:"Rate your ride",submitRating:"Submit rating",totalFare:"Total fare",promoCode:"Have a promo code?",applyPromo:"Apply",promoApplied:"Discount applied!",addTip:"Add a tip",pickupLocation:"Pickup",dropoffLocation:"Drop-off",payment:"Payment",savedPlaces:"Saved Places",recent:"Recent",rideHistory:"Ride History",loyaltyPoints:"Loyalty Points",paymentMethods:"Payment Methods",addCard:"Add payment method",safetyCenter:"Safety Center",emergencySOS:"Emergency SOS",sosSent:"SOS SENT — Help is coming",shareTrip:"Share Trip",callDriver:"Call",messageDriver:"Message",verifyPin:"Verify PIN",trustedContacts:"Trusted Contacts",verificationPin:"Verification PIN",showPin:"Show this PIN to your driver",endRide:"End Ride",bookAgain:"Book Again",rateRide:"Rate",elapsed:"elapsed",distance:"Distance",fare:"Fare",noResults:"No results",back:"Back",totalRides:"Total Rides",thisMonth:"This Month",avgRating:"Avg Rating",activeDrivers:"Active Drivers",avgEta:"Avg ETA",ridesToday:"Rides Today",goldMember:"Gold Member",platinum:"Platinum",pointsReset:"Resets Jul 1",freeRide:"Free Ride",discount:"Discount",priority:"Priority",accountSettings:"Account Settings",subscriptions:"Subscriptions",referEarn:"Refer & Earn",default:"Default",notify:"Notify",addContact:"Add contact",licPlate:"Plate",markAllRead:"Mark all read",greatConvo:"Great conversation",safeDriver:"Safe driver",onTime:"On time",cleanCar:"Clean car",smoothRide:"Smooth ride",skipTip:"Skip",done:"Done",thankYou:"Thank you!",feedbackHelps:"Your feedback helps improve the experience.",pointsEarned:"+50 loyalty points earned 🎉",zeroCo2:"Zero CO₂",fastest:"Fastest",cheapest:"Cheapest",popular:"Popular",business:"Business",driverArrived:"Driver Arrived — Start",insured:"All rides insured · Live location · 24/7 support",newBadge:"New",carbonOffset:"Carbon offset"},de:{home:"Start",rides:"Fahrten",profile:"Profil",safety:"Sicherheit",searchRides:"Fahrten suchen",chooseRide:"Fahrzeug wählen",bookNow:"Buchen",confirmBooking:"Buchung bestätigen",findingDriver:"Fahrer wird gesucht…",matchingBest:"Besten Fahrer in der Nähe suchen",driverAssigned:"Fahrer zugewiesen",rideInProgress:"Fahrt läuft",youArrived:"Angekommen!",rateYourRide:"Fahrt bewerten",submitRating:"Bewertung senden",totalFare:"Gesamtpreis",promoCode:"Promo-Code?",applyPromo:"Anwenden",promoApplied:"Rabatt angewendet!",addTip:"Trinkgeld",pickupLocation:"Abholung",dropoffLocation:"Ziel",payment:"Zahlung",savedPlaces:"Gespeicherte Orte",recent:"Zuletzt",rideHistory:"Fahrtenverlauf",loyaltyPoints:"Treuepunkte",paymentMethods:"Zahlungsmethoden",addCard:"Hinzufügen",safetyCenter:"Sicherheitscenter",emergencySOS:"Notruf SOS",sosSent:"SOS GESENDET",shareTrip:"Fahrt teilen",callDriver:"Anrufen",messageDriver:"Schreiben",verifyPin:"PIN prüfen",trustedContacts:"Vertrauenspersonen",verificationPin:"Verifikations-PIN",showPin:"PIN dem Fahrer zeigen",endRide:"Beenden",bookAgain:"Erneut buchen",rateRide:"Bewerten",elapsed:"vergangen",distance:"Entfernung",fare:"Preis",noResults:"Keine Ergebnisse",back:"Zurück",totalRides:"Gesamte Fahrten",thisMonth:"Diesen Monat",avgRating:"Ø Bewertung",activeDrivers:"Aktive Fahrer",avgEta:"Ø Ankunft",ridesToday:"Fahrten heute",goldMember:"Gold-Mitglied",platinum:"Platin",pointsReset:"Reset am 1. Juli",freeRide:"Gratisfahrt",discount:"Rabatt",priority:"Priorität",accountSettings:"Einstellungen",subscriptions:"Abonnements",referEarn:"Empfehlen",default:"Standard",notify:"Benachrichtigen",addContact:"Kontakt hinzufügen",licPlate:"Kennzeichen",markAllRead:"Alle gelesen",greatConvo:"Gutes Gespräch",safeDriver:"Sicherer Fahrer",onTime:"Pünktlich",cleanCar:"Sauberes Auto",smoothRide:"Angenehme Fahrt",skipTip:"Überspringen",done:"Fertig",thankYou:"Danke!",feedbackHelps:"Ihr Feedback verbessert das Erlebnis.",pointsEarned:"+50 Treuepunkte gesammelt 🎉",zeroCo2:"Null CO₂",fastest:"Schnellste",cheapest:"Günstigste",popular:"Beliebt",business:"Business",driverArrived:"Fahrer angekommen — Starten",insured:"Alle Fahrten versichert · Standort live · 24/7-Support",newBadge:"Neu",carbonOffset:"CO₂-Ausgleich"},es:{home:"Inicio",rides:"Viajes",profile:"Perfil",safety:"Seguridad",searchRides:"Buscar viajes",chooseRide:"Elige tu vehículo",bookNow:"Reservar",confirmBooking:"Confirmar reserva",findingDriver:"Buscando conductor…",matchingBest:"Buscando el mejor conductor",driverAssigned:"Conductor asignado",rideInProgress:"Viaje en curso",youArrived:"¡Has llegado!",rateYourRide:"Califica tu viaje",submitRating:"Enviar calificación",totalFare:"Tarifa total",promoCode:"¿Código promo?",applyPromo:"Aplicar",promoApplied:"¡Descuento aplicado!",addTip:"Propina",pickupLocation:"Recogida",dropoffLocation:"Destino",payment:"Pago",savedPlaces:"Lugares guardados",recent:"Recientes",rideHistory:"Historial de viajes",loyaltyPoints:"Puntos de fidelidad",paymentMethods:"Métodos de pago",addCard:"Añadir método",safetyCenter:"Centro de seguridad",emergencySOS:"SOS Emergencia",sosSent:"SOS ENVIADO",shareTrip:"Compartir viaje",callDriver:"Llamar",messageDriver:"Mensaje",verifyPin:"Verificar PIN",trustedContacts:"Contactos de confianza",verificationPin:"PIN de verificación",showPin:"Muestra este PIN al conductor",endRide:"Terminar",bookAgain:"Volver a reservar",rateRide:"Calificar",elapsed:"transcurrido",distance:"Distancia",fare:"Tarifa",noResults:"Sin resultados",back:"Atrás",totalRides:"Viajes totales",thisMonth:"Este mes",avgRating:"Val. media",activeDrivers:"Conductores activos",avgEta:"ETA media",ridesToday:"Viajes hoy",goldMember:"Miembro Oro",platinum:"Platino",pointsReset:"Reinicio el 1 Jul.",freeRide:"Viaje gratis",discount:"Descuento",priority:"Prioridad",accountSettings:"Configuración",subscriptions:"Suscripciones",referEarn:"Referir y ganar",default:"Predeterminado",notify:"Notificar",addContact:"Añadir contacto",licPlate:"Matrícula",markAllRead:"Marcar todo leído",greatConvo:"Buena conversación",safeDriver:"Conducción segura",onTime:"Puntual",cleanCar:"Coche limpio",smoothRide:"Viaje suave",skipTip:"Omitir",done:"Listo",thankYou:"¡Gracias!",feedbackHelps:"Tu valoración mejora la experiencia.",pointsEarned:"+50 puntos ganados 🎉",zeroCo2:"Cero CO₂",fastest:"El más rápido",cheapest:"El más barato",popular:"Popular",business:"Negocios",driverArrived:"Conductor llegó — Iniciar",insured:"Todos los viajes asegurados · Localización en vivo · Soporte 24/7",newBadge:"Nuevo",carbonOffset:"Compensación CO₂"}};
+let locale='fr';
+const t=k=>(I18N[locale]&&I18N[locale][k])||I18N.en[k]||k;
+function applyI18n(){document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.dataset.i18n;if(I18N[locale][k])el.textContent=I18N[locale][k];});document.documentElement.lang=locale;}
+const VEHICLES=[{id:'moto',name:'Moto',cat:'Rapide',icon:'🏍️',cap:1,eta:1,price:3.9,tagKey:'fastest'},{id:'eco',name:'Éco',cat:'Budget',icon:'🌿',cap:4,eta:5,price:6.5,tagKey:'cheapest'},{id:'std',name:'Standard',cat:'Courant',icon:'🚗',cap:4,eta:3,price:9.8,tagKey:null},{id:'confort',name:'Confort',cat:'Courant',icon:'🚙',cap:4,eta:4,price:13.5,tagKey:'popular'},{id:'elec',name:'Électrique',cat:'Éco',icon:'⚡',cap:4,eta:6,price:10.9,tagKey:'zeroCo2'},{id:'xl',name:'XL',cat:'Groupe',icon:'🚐',cap:6,eta:7,price:17.0,tagKey:null},{id:'van',name:'Van',cat:'Groupe',icon:'🚌',cap:8,eta:10,price:26.0,tagKey:null},{id:'prem',name:'Premium',cat:'Premium',icon:'👑',cap:4,eta:6,price:24.0,tagKey:'business'},{id:'luxe',name:'Luxe',cat:'Premium',icon:'💎',cap:3,eta:9,price:42.0,tagKey:null},{id:'taxi',name:'Taxi',cat:'Classique',icon:'🟡',cap:4,eta:2,price:8.2,tagKey:null}];
+const DRIVERS=[{name:'Antoine M.',rating:4.97,trips:3841,avatar:'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&auto=format',car:'Tesla Model 3 · Noir · 33',plate:'BX-241-CD',langs:['Français','Anglais'],level:'Elite Pro'},{name:'Fatima B.',rating:4.94,trips:2101,avatar:'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=80&h=80&fit=crop&auto=format',car:'Peugeot 508 · Gris · 33',plate:'BX-182-GH',langs:['Français','Arabe'],level:'Or'},{name:'Pierre L.',rating:4.91,trips:2974,avatar:'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&auto=format',car:'Mercedes EQS · Blanc · 33',plate:'BX-305-KL',langs:['Français','Espagnol'],level:'Or'},{name:'Sophie N.',rating:4.99,trips:1654,avatar:'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=40&h=40&fit=crop&auto=format',car:'Renault Zoé · Bordeaux Rouge · 33',plate:'BX-078-OP',langs:['Français','Anglais'],level:'Elite Pro'}];
+const PARIS_PLACES=[{label:'Place de la Bourse',icon:'🏛️',coords:[44.8415,-0.5703]},{label:'Gare Saint-Jean',icon:'🚆',coords:[44.8256,-0.5561]},{label:'Cité du Vin',icon:'🍷',coords:[44.8621,-0.5499]},{label:'Aéroport BOD',icon:'✈️',coords:[44.8283,-0.7153]},{label:'Cours de l\'Intendance',icon:'🛍️',coords:[44.8408,-0.5773]},{label:'Grosse Cloche',icon:'🔔',coords:[44.8356,-0.5745]}];
+const SAVED_PLACES=[{label:'Domicile',sublabel:'12 Rue Sainte-Catherine, Bordeaux Centre',icon:'🏠',coords:[44.8384,-0.5742]},{label:'Bureau',sublabel:'Immeuble Darwin, Bvd Alfred de Vigny',icon:'💼',coords:[44.8460,-0.5380]},{label:'Salle de sport',sublabel:'Basic Fit Mériadeck, Bordeaux',icon:'🏋️',coords:[44.8428,-0.5790]}];
+const PAYMENTS=[{id:'cb',label:'CB Visa ···· 4821',icon:'💳',isDefault:true},{id:'apple',label:'Apple Pay',icon:'🍎',isDefault:false},{id:'google',label:'Google Pay',icon:'🔵',isDefault:false},{id:'paypal',label:'PayPal',icon:'🅿️',isDefault:false},{id:'cash',label:'Espèces',icon:'💶',isDefault:false}];
+const HISTORY=[{id:'r1',date:'14 juin 2026 · 9h12',from:'Gare Saint-Jean',to:'Cité du Vin',driver:'Antoine M.',vehicle:'Confort',fare:11.5,rating:5,avatar:'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&auto=format'},{id:'r2',date:'12 juin 2026 · 18h45',from:'Aéroport BOD',to:'Bordeaux Centre',driver:'Fatima B.',vehicle:'Standard',fare:22.0,rating:5,avatar:'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=80&h=80&fit=crop&auto=format'},{id:'r3',date:'10 juin 2026 · 14h33',from:'Mériadeck',to:'Chartrons',driver:'Pierre L.',vehicle:'Premium',fare:18.5,rating:4,avatar:'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&auto=format'},{id:'r4',date:'8 juin 2026 · 11h00',from:'Place Gambetta',to:'Grosse Cloche',driver:'Sophie N.',vehicle:'Éco',fare:5.9,rating:5,avatar:'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=40&h=40&fit=crop&auto=format'},{id:'r5',date:'5 juin 2026 · 8h20',from:'Darwin Mériadeck',to:'Gare Saint-Jean',driver:'Antoine M.',vehicle:'Standard',fare:9.2,rating:5,avatar:'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&auto=format'}];
+const NOTIFS=[{icon:'🎉',text:{fr:'RIDE20 : -2€ sur votre prochain trajet',en:'RIDE20: €2 off your next ride',de:'RIDE20: 2€ Rabatt',es:'RIDE20: €2 de descuento'},time:'2 min',unread:true},{icon:'⭐',text:{fr:'Vous avez gagné 150 points fidélité',en:'You earned 150 loyalty points!',de:'150 Treuepunkte gesammelt!',es:'¡Ganaste 150 puntos!'},time:'1h',unread:true},{icon:'🚗',text:{fr:'Antoine M. a terminé votre trajet',en:'Antoine M. completed your ride',de:'Antoine M. hat Ihre Fahrt beendet',es:'Antoine M. completó tu viaje'},time:'3h',unread:false},{icon:'💳',text:{fr:'Paiement de 13,50 € confirmé',en:'Payment of €13.50 confirmed',de:'Zahlung von 13,50 € bestätigt',es:'Pago de €13,50 confirmado'},time:'3h',unread:false}];
+const state={view:'home',step:'location',selectedVehicle:VEHICLES[3],selectedDriver:DRIVERS[0],fromCoords:null,toCoords:null,fromLabel:'',toLabel:'',routeInfo:null,filterCat:'All',dark:true,tipAmount:0,paymentIdx:0,promoApplied:false,timerInterval:null,timerSec:0,nominatimTimers:{from:null,to:null},sosSent:false};
+const fmtEur=n=>new Intl.NumberFormat({fr:'fr-FR',en:'en-GB',de:'de-DE',es:'es-ES'}[locale]||'fr-FR',{style:'currency',currency:'EUR'}).format(n);
+const PARIS=[44.8378,-0.5792];
+let map,fromMarker,toMarker,routeLayer,driverMarker;
+function initMap(){map=L.map('leaflet-map',{zoomControl:false,attributionControl:false}).setView(PARIS,13);updateMapTile();}
+function updateMapTile(){if(map._tileLayer)map.removeLayer(map._tileLayer);const url=state.dark?'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png':'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';map._tileLayer=L.tileLayer(url,{maxZoom:19}).addTo(map);}
+function mkIcon(color,pulse){const p=pulse?\`<div style="position:absolute;inset:-6px;border-radius:50%;background:\${color};opacity:.15;animation:ping 1.5s infinite;"></div>\`:'';return L.divIcon({html:\`<div style="position:relative;width:14px;height:14px;">\${p}<div style="width:14px;height:14px;border-radius:50%;background:\${color};border:2.5px solid rgba(255,255,255,.85);box-shadow:0 0 10px \${color}80;"></div></div>\`,className:'',iconSize:[14,14],iconAnchor:[7,7]});}
+function mkCarIcon(){const bg=state.dark?'#0f0f1c':'#fff';return L.divIcon({html:\`<div style="width:28px;height:28px;border-radius:8px;background:\${bg};border:2px solid #00c4ff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 12px #00c4ff50;">🚗</div>\`,className:'',iconSize:[28,28],iconAnchor:[14,14]});}
+function setFromMarker(c){if(fromMarker)map.removeLayer(fromMarker);fromMarker=L.marker(c,{icon:mkIcon('#00c4ff',true)}).addTo(map);fitBounds();}
+function setToMarker(c){if(toMarker)map.removeLayer(toMarker);toMarker=L.marker(c,{icon:mkIcon('#f5e642',false)}).addTo(map);fitBounds();}
+function fitBounds(){const pts=[fromMarker,toMarker].filter(Boolean).map(m=>m.getLatLng());if(pts.length===2)map.fitBounds(L.latLngBounds(pts).pad(.25),{duration:1.1});else if(pts.length===1)map.flyTo(pts[0],13,{duration:1.1});}
+function drawRoute(coords){if(routeLayer){routeLayer.forEach(l=>map.removeLayer(l));}routeLayer=[L.polyline(coords,{color:'#00c4ff18',weight:14}).addTo(map),L.polyline(coords,{color:'#00c4ff',weight:3,dashArray:'8 5'}).addTo(map)];}
+function animateDriver(){if(!state.fromCoords)return;const s=[state.fromCoords[0]+.012,state.fromCoords[1]-.009];if(driverMarker)map.removeLayer(driverMarker);driverMarker=L.marker(s,{icon:mkCarIcon()}).addTo(map);let i=0;const id=setInterval(()=>{i++;const p=Math.min(i/25,1);driverMarker.setLatLng([s[0]+(state.fromCoords[0]-s[0])*p,s[1]+(state.fromCoords[1]-s[1])*p]);if(i>=25)clearInterval(id);},400);}
+function mapZoom(d){map.setZoom(map.getZoom()+d);}
+function mapReset(){map.setView(state.fromCoords||PARIS,13);}
+async function fetchNominatim(q){const r=await fetch(\`https://nominatim.openstreetmap.org/search?q=\${encodeURIComponent(q+' Bordeaux')}&format=json&limit=6&accept-language=\${locale}&addressdetails=1&viewbox=-0.75,44.75,-0.45,44.95&bounded=0\`);return r.json();}
+async function fetchOSRM(from,to){const r=await fetch(\`https://router.project-osrm.org/route/v1/driving/\${from[1]},\${from[0]};\${to[1]},\${to[0]}?overview=full&geometries=geojson\`);const d=await r.json();if(!d.routes?.[0])return null;const rt=d.routes[0];return{coords:rt.geometry.coordinates.map(([ln,la])=>[la,ln]),distanceKm:rt.distance/1000,durationMin:Math.ceil(rt.duration/60)};}
+function onAddressInput(field,value){state[field+'Label']=value;if(state.nominatimTimers[field])clearTimeout(state.nominatimTimers[field]);const dd=document.getElementById(field+'-dropdown');const sp=document.getElementById(field+'-spinner');if(!value||value.length<3){dd.classList.add('hidden');return;}sp.classList.remove('hidden');state.nominatimTimers[field]=setTimeout(async()=>{try{const res=await fetchNominatim(value);sp.classList.add('hidden');renderAC(field,dd,res);}catch{sp.classList.add('hidden');}},420);}
+function renderAC(field,dd,results){if(!results.length){dd.innerHTML=\`<div style="padding:12px 16px;font-size:12px;color:var(--muted);text-align:center">\${t('noResults')}</div>\`;}else{dd.innerHTML=results.map(r=>{const pts=r.display_name.split(',');const main=pts.slice(0,2).join(',').trim();const sub=pts.slice(2,4).join(',').trim();return\`<button class="autocomplete-item" onclick="selAddr('\${field}',\${r.lat},\${r.lon},\${JSON.stringify(main)})"><span class="ac-pin">📍</span><div><div class="ac-main">\${main}</div><div class="ac-sub">\${sub}</div></div></button>\`;}).join('');}dd.classList.remove('hidden');}
+function selAddr(field,lat,lon,label){const coords=[parseFloat(lat),parseFloat(lon)];state[field+'Label']=label;state[field+'Coords']=coords;document.getElementById(field+'-input').value=label;document.getElementById(field+'-dropdown').classList.add('hidden');if(field==='from')setFromMarker(coords);else setToMarker(coords);if(state.fromCoords&&state.toCoords)computeRoute();}
+async function computeRoute(){try{const info=await fetchOSRM(state.fromCoords,state.toCoords);if(!info)return;state.routeInfo=info;drawRoute(info.coords);document.getElementById('route-meta').classList.remove('hidden');document.getElementById('route-dist').textContent=\`\${(Math.round(info.distanceKm*10)/10).toLocaleString(locale)} km\`;document.getElementById('route-dur').textContent=\`\${info.durationMin} min\`;const bar=document.getElementById('route-summary-bar');bar.style.display='flex';document.getElementById('route-summary-text').textContent=\`\${state.fromLabel||'—'} → \${state.toLabel||'—'}\`;document.getElementById('route-summary-meta').textContent=\`\${Math.round(info.distanceKm*10)/10} km · \${info.durationMin} min\`;document.getElementById('ride-eta').textContent=\`\${info.durationMin} min\`;document.getElementById('ride-dist').textContent=\`\${Math.round(info.distanceKm*10)/10} km\`;}catch(e){console.warn(e);}}
+const STEPS=['location','vehicle','finding','driver-found','riding','completed'];
+function setStep(step){state.step=step;STEPS.forEach(s=>{const el=document.getElementById('step-'+s);if(el)el.classList.toggle('hidden',s!==step);});if(step==='driver-found')animateDriver();if(step==='riding')startTimer();else stopTimer();}
+function goToVehicle(){setStep('vehicle');renderVehicleList();updateVehicleSummary();}
+function startTimer(){state.timerSec=0;state.timerInterval=setInterval(()=>{state.timerSec++;const m=String(Math.floor(state.timerSec/60)).padStart(2,'0');const s=String(state.timerSec%60).padStart(2,'0');const el=document.getElementById('ride-timer');if(el)el.textContent=\`\${m}:\${s}\`;},1000);}
+function stopTimer(){if(state.timerInterval){clearInterval(state.timerInterval);state.timerInterval=null;}}
+function endRide(){stopTimer();setStep('completed');document.getElementById('completed-fare').textContent=fmtEur(state.selectedVehicle.price);setTimeout(()=>openModal('rating-modal'),800);}
+function setView(view){state.view=view;['home','history','profile'].forEach(v=>{const el=document.getElementById('view-'+v);if(el)el.classList.toggle('hidden',v!==view);});document.querySelectorAll('[data-view]').forEach(btn=>btn.classList.toggle('active',btn.dataset.view===view));if(view==='history')renderHistory();if(view==='profile')renderProfile();}
+function openModal(id){if(id==='confirm-modal')populateConfirmModal();if(id==='rating-modal')populateRatingModal();document.getElementById(id).showModal();}
+function closeModal(id){document.getElementById(id).close();}
+document.querySelectorAll('dialog').forEach(d=>{d.addEventListener('click',e=>{if(e.target===d)d.close();});});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('dialog[open]').forEach(d=>d.close());});
+function populateConfirmModal(){const v=state.selectedVehicle;const drv=state.selectedDriver;document.getElementById('modal-from').textContent=state.fromLabel||'—';document.getElementById('modal-to').textContent=state.toLabel||'—';if(state.routeInfo)document.getElementById('modal-dist').innerHTML=\`\${Math.round(state.routeInfo.distanceKm*10)/10} km<br>\${state.routeInfo.durationMin} min\`;document.getElementById('modal-v-icon').textContent=v.icon;document.getElementById('modal-v-name').textContent=v.name;document.getElementById('modal-v-info').textContent=\`\${v.cap} sièges · \${v.eta} min\`;document.getElementById('modal-v-price').textContent=fmtEur(v.price);document.getElementById('modal-drv-avatar').src=drv.avatar;document.getElementById('modal-drv-name').textContent=drv.name;document.getElementById('modal-drv-car').textContent=drv.car;document.getElementById('modal-drv-rating').textContent=drv.rating;renderTipBtns('tip-btns');renderPayBtns();updateModalTotal();}
+function renderTipBtns(cid){const tips=[0,1,2,3];document.getElementById(cid).innerHTML=tips.map(tv=>\`<button class="tip-btn\${state.tipAmount===tv?' active':''}" onclick="setTip(\${tv},'\${cid}')">\${tv===0?t('skipTip'):fmtEur(tv)}</button>\`).join('');}
+function setTip(amount,cid){state.tipAmount=amount;renderTipBtns(cid);updateModalTotal();}
+function renderPayBtns(){document.getElementById('modal-pay-btns').innerHTML=PAYMENTS.map((p,i)=>\`<button class="pay-btn\${state.paymentIdx===i?' active':''}" onclick="setPayment(\${i})">\${p.icon} \${p.label}</button>\`).join('');}
+function setPayment(idx){state.paymentIdx=idx;renderPayBtns();}
+function updateModalTotal(){const disc=state.promoApplied?2:0;const total=state.selectedVehicle.price-disc+state.tipAmount;document.getElementById('modal-total').textContent=fmtEur(total);document.getElementById('modal-discount').style.display=state.promoApplied?'block':'none';document.getElementById('confirm-btn-label').textContent=\`\${t('bookNow')} · \${fmtEur(total)}\`;}
+function togglePromo(){document.getElementById('promo-row').classList.toggle('open');}
+function applyPromo(){if(document.getElementById('promo-input').value.toUpperCase()==='RIDE20'){state.promoApplied=true;document.getElementById('promo-success').classList.add('show');updateModalTotal();}}
+function confirmBooking(){closeModal('confirm-modal');setStep('finding');setTimeout(()=>{state.selectedDriver=DRIVERS[Math.floor(Math.random()*DRIVERS.length)];populateDriverFound();setStep('driver-found');},2500);}
+function populateDriverFound(){const drv=state.selectedDriver;['drv-avatar','ride-avatar'].forEach(id=>{document.getElementById(id).src=drv.avatar;document.getElementById(id).alt=drv.name;});document.getElementById('drv-name').textContent=drv.name;document.getElementById('drv-car').textContent=drv.car;document.getElementById('drv-rating').textContent=drv.rating;document.getElementById('drv-trips').textContent=\`\${drv.trips.toLocaleString()} trajets\`;document.getElementById('drv-level').textContent=drv.level;document.getElementById('drv-plate').textContent=drv.plate;document.getElementById('drv-eta').textContent=\`\${state.selectedVehicle.eta} min\`;document.getElementById('drv-langs').textContent=drv.langs.join(' · ');document.getElementById('ride-name').textContent=drv.name;document.getElementById('ride-car').textContent=drv.car;document.getElementById('ride-fare').textContent=fmtEur(state.selectedVehicle.price);document.getElementById('safety-drv-name').textContent=drv.name;}
+let ratingValue=5,ratingTip=2;
+const selectedTags=new Set(['safeDriver','onTime']);
+const tagKeys=['greatConvo','safeDriver','onTime','cleanCar','smoothRide'];
+function populateRatingModal(){const drv=state.selectedDriver;document.getElementById('rating-drv-name').textContent=drv.name;document.getElementById('rating-drv-avatar').src=drv.avatar;document.getElementById('rating-drv-avatar').alt=drv.name;updateStars();renderTagChips();renderRatingTips();updateRatingLabel();}
+function setRating(n){ratingValue=n;updateStars();updateRatingLabel();}
+function updateStars(){document.querySelectorAll('.star-pick').forEach(btn=>btn.classList.toggle('lit',parseInt(btn.dataset.n)<=ratingValue));}
+function renderTagChips(){document.getElementById('rating-tags').innerHTML=tagKeys.map(k=>\`<button class="tag-chip\${selectedTags.has(k)?' active':''}" onclick="toggleTag('\${k}')">\${t(k)}</button>\`).join('');}
+function toggleTag(k){if(selectedTags.has(k))selectedTags.delete(k);else selectedTags.add(k);renderTagChips();}
+function renderRatingTips(){document.getElementById('rating-tip-btns').innerHTML=[0,1,2,3,5].map(tv=>\`<button class="tip-btn\${ratingTip===tv?' active':''}" onclick="setRatingTip(\${tv})">\${tv===0?t('skipTip'):fmtEur(tv)}</button>\`).join('');}
+function setRatingTip(tv){ratingTip=tv;renderRatingTips();updateRatingLabel();}
+function updateRatingLabel(){document.getElementById('rating-submit-label').textContent=ratingTip>0?\`\${t('submitRating')} + \${fmtEur(ratingTip)}\`:t('submitRating');}
+function submitRating(){document.getElementById('rating-box').innerHTML=\`<div class="modal-body" style="text-align:center;padding:40px 24px;gap:14px"><div class="success-ring">✓</div><h2 style="font-size:22px;font-weight:800">\${t('thankYou')}</h2><p style="font-size:13px;color:var(--muted)">\${t('feedbackHelps')}</p><p style="font-size:13px;color:var(--primary);font-weight:600">\${t('pointsEarned')}</p><button class="btn-primary" onclick="closeModal('rating-modal');setStep('location')">\${t('done')}</button></div>\`;}
+function triggerSOS(){state.sosSent=!state.sosSent;document.getElementById('sos-btn').classList.toggle('triggered',state.sosSent);document.getElementById('sos-label').textContent=state.sosSent?t('sosSent'):t('emergencySOS');document.getElementById('sos-note').classList.toggle('show',state.sosSent);}
+function renderVehicleList(){const cats=['All',...new Set(VEHICLES.map(v=>v.cat))];document.getElementById('cat-filters').innerHTML=cats.map(c=>\`<button class="cat-btn\${state.filterCat===c?' active':''}" onclick="setCat('\${c}')">\${c==='All'?'Tous':c}</button>\`).join('');const filtered=state.filterCat==='All'?VEHICLES:VEHICLES.filter(v=>v.cat===state.filterCat);document.getElementById('vehicle-list').innerHTML=filtered.map(v=>{const tagHTML=v.tagKey?\`<span class="v-tag \${v.tagKey}">\${t(v.tagKey)}</span>\`:'';const chk=state.selectedVehicle.id===v.id?'<div class="check-circle">✓</div>':'';const co2=v.price===0||v.id==='elec'?'· <span style="color:var(--green)">CO₂ 0</span>':'';return\`<button class="vehicle-card\${state.selectedVehicle.id===v.id?' selected':''}" onclick="selectVehicle('\${v.id}')"><div class="vehicle-icon">\${v.icon}</div><div class="vehicle-info"><div class="vehicle-name-row"><span class="vehicle-name">\${v.name}</span>\${tagHTML}</div><div class="vehicle-meta">👥 \${v.cap} · ⏱ \${v.eta} min \${co2}</div></div><div class="vehicle-price-col"><span class="vehicle-price">\${fmtEur(v.price)}</span>\${chk}</div></button>\`;}).join('');}
+function setCat(cat){state.filterCat=cat;renderVehicleList();}
+function selectVehicle(id){state.selectedVehicle=VEHICLES.find(v=>v.id===id);renderVehicleList();updateVehicleSummary();}
+function updateVehicleSummary(){const v=state.selectedVehicle;document.getElementById('vehicle-summary-text').textContent=\`\${v.name} · \${v.eta} min · \${v.cap} sièges\`;document.getElementById('vehicle-summary-price').textContent=fmtEur(v.price);document.getElementById('book-btn-label').textContent=\`\${t('bookNow')} \${v.name} · \${fmtEur(v.price)}\`;}
+function openConfirmModal(){state.promoApplied=false;state.tipAmount=0;openModal('confirm-modal');}
+function renderHistory(){const total=HISTORY.reduce((s,r)=>s+r.fare,0);document.getElementById('history-stats').innerHTML=[{label:t('totalRides'),val:String(HISTORY.length+43),icon:'🚗',color:'var(--primary)'},{label:t('thisMonth'),val:fmtEur(total),icon:'💶',color:'var(--accent)'},{label:t('avgRating'),val:'4.97 ★',icon:'👍',color:'var(--purple)'}].map(({label,val,icon,color})=>\`<div class="stat-tile"><div class="stat-icon" style="color:\${color}">\${icon}</div><div class="stat-value">\${val}</div><div class="stat-label">\${label}</div></div>\`).join('');document.getElementById('history-list').innerHTML=HISTORY.map(r=>\`<article class="history-item"><img class="history-avatar" src="\${r.avatar}" alt="\${r.driver}"/><div class="history-info"><div class="history-top"><span class="history-dest">\${r.to}</span><span class="history-fare">\${fmtEur(r.fare)}</span></div><div class="history-route">\${r.from} → \${r.to}</div><div class="history-bottom"><span class="history-date">\${r.date}<span class="history-badge">\${r.vehicle}</span></span><div class="star-rating">\${[1,2,3,4,5].map(i=>\`<span class="s \${i<=r.rating?'filled':'empty'}">★</span>\`).join('')}</div></div></div><button class="repeat-btn" onclick="repeatRide('\${r.id}')">↺</button></article>\`).join('');}
+function repeatRide(id){const r=HISTORY.find(h=>h.id===id);if(!r)return;state.toLabel=r.to;document.getElementById('to-input').value=r.to;setView('home');setStep('location');}
+function renderProfile(){document.getElementById('reward-btns').innerHTML=[{key:'freeRide',pts:'500 pts'},{key:'discount',pts:'200 pts'},{key:'priority',pts:'800 pts'}].map(({key,pts})=>\`<button class="reward-btn">🎁 \${t(key)} <span style="color:var(--muted)">\${pts}</span></button>\`).join('');document.getElementById('profile-saved-places').innerHTML=SAVED_PLACES.map(p=>\`<div class="saved-row"><div class="saved-emoji-box">\${p.icon}</div><div class="saved-row-info"><div class="saved-row-name">\${p.label}</div><div class="saved-row-addr">\${p.sublabel}</div></div><span style="color:var(--muted);font-size:12px">›</span></div>\`).join('');document.getElementById('payment-list').innerHTML=PAYMENTS.map((p,i)=>\`<button class="payment-item\${i===state.paymentIdx?' active':''}" onclick="selProfilePayment(\${i})"><div class="payment-emoji">\${p.icon}</div><span class="payment-label">\${p.label}</span>\${p.isDefault?\`<span class="default-badge">\${t('default')}</span>\`:''}\ \${i===state.paymentIdx?'<span style="color:var(--primary)">✓</span>':''}</button>\`).join('');document.getElementById('profile-menu').innerHTML=[{label:t('accountSettings'),badge:null},{label:t('subscriptions'),badge:t('newBadge')},{label:t('referEarn'),badge:'10 €'},{label:t('carbonOffset'),badge:null}].map(({label,badge})=>\`<div class="menu-item"><span class="menu-label">\${label}</span>\${badge?\`<span class="menu-badge">\${badge}</span>\`:''}<span class="menu-arrow">›</span></div>\`).join('');}
+function selProfilePayment(i){state.paymentIdx=i;renderProfile();}
+function renderParisPlaces(){document.getElementById('paris-places').innerHTML=PARIS_PLACES.map(p=>\`<button class="quick-place" onclick="selQuickPlace(\${p.coords[0]},\${p.coords[1]},\${JSON.stringify(p.label)})"><span class="emoji">\${p.icon}</span><span class="name">\${p.label}</span></button>\`).join('');}
+function renderSavedGrid(){document.getElementById('saved-places-grid').innerHTML=SAVED_PLACES.map(p=>\`<button class="saved-place" onclick="selQuickPlace(\${p.coords[0]},\${p.coords[1]},\${JSON.stringify(p.label)})"><span class="emoji">\${p.icon}</span><span class="label">\${p.label}</span></button>\`).join('');}
+function renderRecentList(){document.getElementById('recent-list').innerHTML=HISTORY.slice(0,3).map(r=>\`<div class="recent-item" onclick="quickSetTo(\${JSON.stringify(r.to)})"><div class="recent-icon">📍</div><div class="recent-info"><div class="recent-name">\${r.to}</div><div class="recent-date">\${r.date}</div></div></div>\`).join('');}
+function selQuickPlace(lat,lon,label){selAddr('to',lat,lon,label);}
+function quickSetTo(label){state.toLabel=label;document.getElementById('to-input').value=label;}
+function renderStatsStrip(){document.getElementById('stats-strip').innerHTML=[{label:t('activeDrivers'),val:'412',icon:'🚗',color:'var(--primary)'},{label:t('avgEta'),val:'4,2 min',icon:'⏱',color:'var(--accent)'},{label:t('ridesToday'),val:'8 304',icon:'⚡',color:'var(--purple)'},{label:t('avgRating'),val:'4.93 ★',icon:'⭐',color:'var(--green)'}].map(({label,val,icon,color})=>\`<div class="stat-card"><div class="icon" style="color:\${color}">\${icon}</div><div class="val">\${val}</div><div class="lbl">\${label}</div></div>\`).join('');}
+function renderNotifs(){document.getElementById('notif-list').innerHTML=NOTIFS.map(n=>\`<div class="notif-item\${n.unread?' unread':''}"><div class="notif-icon">\${n.icon}</div><div style="flex:1"><div class="notif-text">\${n.text[locale]||n.text.en}</div><div class="notif-time">\${n.time}</div></div>\${n.unread?'<div class="notif-dot"></div>':''}</div>\`).join('');const cnt=NOTIFS.filter(n=>n.unread).length;const el=document.getElementById('notif-count');el.textContent=cnt;el.style.display=cnt?'flex':'none';}
+function markAllRead(){NOTIFS.forEach(n=>n.unread=false);renderNotifs();}
+function toggleNotifMenu(e){e.stopPropagation();document.getElementById('locale-dropdown').classList.add('hidden');document.getElementById('notif-dropdown').classList.toggle('hidden');}
+function toggleLocaleMenu(e){e.stopPropagation();document.getElementById('notif-dropdown').classList.add('hidden');document.getElementById('locale-dropdown').classList.toggle('hidden');}
+function setLocale(l){locale=l;document.getElementById('locale-label').textContent=l.toUpperCase();document.getElementById('locale-dropdown').classList.add('hidden');document.querySelectorAll('.dropdown-item').forEach(btn=>{btn.classList.toggle('active',btn.dataset.locale===l);const old=btn.querySelector('.chk');if(old)old.remove();if(btn.dataset.locale===l){const c=document.createElement('span');c.className='chk';c.textContent='✓';btn.appendChild(c);}});applyI18n();renderNotifs();renderStatsStrip();if(state.view==='history')renderHistory();if(state.view==='profile')renderProfile();if(state.step==='vehicle'){renderVehicleList();updateVehicleSummary();}}
+function toggleTheme(){state.dark=!state.dark;document.documentElement.setAttribute('data-theme',state.dark?'dark':'light');document.getElementById('theme-btn').textContent=state.dark?'☀️':'🌙';updateMapTile();}
+document.addEventListener('click',()=>{document.getElementById('locale-dropdown').classList.add('hidden');document.getElementById('notif-dropdown').classList.add('hidden');document.querySelectorAll('.autocomplete-dropdown').forEach(d=>d.classList.add('hidden'));});
+function init(){initMap();renderParisPlaces();renderSavedGrid();renderRecentList();renderStatsStrip();renderNotifs();applyI18n();setView('home');setStep('location');}
+init();
+<\/script>
+</body>
+</html>

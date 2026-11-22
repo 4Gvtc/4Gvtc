@@ -1,0 +1,86 @@
+PRD – ENHANCED RIDE-SHARING APP
+Version 1.0 · Juillet 2026 · Web app (Vite + React 19 + TypeScript)
+1. Résumé
+Application web de VTC premium, thème sombre avec accents néon (vert #1ae86a, jaune #f5e642). Refactorisation d'un prototype monolithique (App.tsx, 1318 lignes) vers une architecture modulaire prête pour la production, avec intégrations Google Maps et Stripe en mode mock/stub, drop-in ready pour clés live.
+2. Objectifs
+? Transformer le code monolithique en architecture modulaire (types, lib, data, integrations, features, hooks)
+? Livrer un produit déployable, pas un prototype
+? Couches d'intégration réelles (Maps, Stripe) avec providers mock, remplaçables par de vraies clés API
+? Respecter un standard de design élevé (Taste_Skill.md) sur toute l'interface
+3. Utilisateurs cibles
+? Passager : réserve, suit et paie une course
+? Conducteur (dashboard prévu) : gère ses courses et ses statistiques
+4. Stack technique
+Élément
+Choix
+Build
+Vite
+Framework
+React 19 + TypeScript
+Style
+Tailwind v4
+Animation
+Motion (motion/react)
+Composants UI
+shadcn/ui
+Icônes
+lucide-react
+Thème
+Dark, accent vert néon + jaune
+5. Fonctionnalités – État actuel (livré)
+? Types de domaine centralisés (types/index.ts)
+? Utilitaires : génération d'ID, formatage, constantes, calcul de tarif (surge, multi-arrêts, promo, split fare)
+? Données mock : véhicules, conducteurs, historique, adresses enregistrées, moyens de paiement, notifications, codes promo, abonnements, contacts de confiance
+? Intégration carte : provider mock SVG multi-arrêts (integrations/maps)
+? Écrans existants dans le prototype : réservation (flux en étapes), carte animée, sélection véhicule, course en cours, historique, profil, paiement, pourboire/notation conducteur, sécurité (SOS, partage de trajet)
+6. Fonctionnalités – À livrer
+Module
+Description
+Stripe
+Couche d'abstraction paiement, mode stub sans clé active
+Programmation de course
+Réserver une course à l'avance
+Multi-arrêts (UI)
+Ajouter plusieurs destinations sur un trajet
+Split fare
+Partage du prix entre plusieurs passagers
+Chat in-app
+Messagerie passager ? conducteur
+Dashboard conducteur
+Vue dédiée conducteur + statistiques
+Analytics
+Tableaux de bord d'usage
+Abonnements
+Plans premium
+Parrainage
+Système de referral
+Réservation vocale
+Commande de course par la voix
+Filtre véhicules électriques
+Filtrer les EV
+Autocomplétion d'adresse
+Suggestions d'adresses en temps réel
+Thème clair/sombre
+Corriger le bug : les deux thèmes ont actuellement les mêmes valeurs sombres
+7. Architecture cible
+? types/ — types de domaine
+? lib/ — utilitaires (id, format, constants, fare)
+? data/ — données mock par domaine
+? integrations/ — maps, stripe (types + mockProvider par service)
+? features/ — modules fonctionnels (scheduling, chat, dashboard...)
+? hooks/ — logique réutilisable
+? components/ — décomposition de l'ancien App.tsx
+8. Contraintes non-fonctionnelles
+? Code prêt production, pas de placeholders creux
+? Intégrations = vraies couches d'abstraction avec mock providers interchangeables
+? Qualité de design gouvernée par Taste_Skill.md, appliquée dès le départ
+? Livraison progressive : architecture ? data/utils ? intégrations ? features ? polish UI
+9. Risques
+? Bug thème clair/sombre non résolu (valeurs CSS dupliquées)
+? Volume de features restantes important : prioriser par valeur produit
+10. Prochaines étapes
+? Finaliser la couche Stripe (types + mockProvider)
+? Construire les hooks partagés
+? Décomposer le reste de App.tsx en composant
+? Implémenter les modules features un par un
+
